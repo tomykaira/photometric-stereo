@@ -48,17 +48,50 @@ cv::Point3_<double> estimate_light_direction(cv::Mat sphere) {
   return cv::Point3_<double>(x, y, z);
 }
 
+cv::Point3_<double> calc_normal(cv::Matx34d s, cv::Vec<double, 4> i) {
+  cv::Mat ms(s);
+  cv::Mat normalize = ms * ms.t();
+  cv::Mat vec = ms * cv::Mat(i);
+  cv::Mat n = (normalize).inv() * vec;
+  cv::Vec<double, 3> nvec(n.at<double>(0, 0),
+                           n.at<double>(1, 0),
+                           n.at<double>(2, 0));
+  double scale = 1.0/sqrt(nvec.dot(nvec));
+  return cv::Point3_<double>(nvec.mul(cv::Vec<double, 3>(scale, scale, scale)));
+}
+
 int main(int argc, char *argv[])
 {
   std::cout << "For Computer Vision class Assignment" << std::endl;
 
   cv::Mat_<uint8_t> spheres = cv::imread("./sphere.png", CV_LOAD_IMAGE_GRAYSCALE);
 
-  cv::Point3_<double> directions[4];
+  cv::Matx34d directions;
 
   for (int i = 0; i < 4; ++i) {
-    directions[i] = estimate_light_direction(spheres(cv::Range(0, 320), cv::Range(240*i, 240*(i+1))));
-    std::cout << directions[i] << std::endl;
+    cv::Vec<double, 3> d = estimate_light_direction(spheres(cv::Range(0, 320), cv::Range(240*i, 240*(i+1))));
+    std::cout << cv::Mat(d) << std::endl;
+    for (int j = 0; j < 3; ++j) {
+      directions(j, i) = d(j);
+    }
+  }
+  std::cout << cv::Mat(directions) << std::endl;
+
+  cv::Mat_<uint8_t> problem = cv::imread("./problem.png", CV_LOAD_IMAGE_GRAYSCALE);
+  const int width = problem.cols / 4;
+  const int height = problem.rows;
+
+  cv::Point3_<double> *normal = new cv::Point3_<double>[width*height];
+
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      cv::Vec<double, 4> i(
+        (double)problem.at<uint8_t>(x, y),
+        (double)problem.at<uint8_t>(x + width, y),
+        (double)problem.at<uint8_t>(x + width*2, y),
+        (double)problem.at<uint8_t>(x + width*3, y));
+      normal[y*width + x] = calc_normal(directions, i);
+    }
   }
 
   return 0;
