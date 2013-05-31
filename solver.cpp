@@ -208,7 +208,8 @@ int main(int argc, char *argv[])
   }
 
   double *height_map = new double[width*height];
-  double smallest = 0;
+  double *height_map_rev = new double[width*height];
+  double smallest = 0, smallest_rev = 0;
   cv::Point3_<double> n;
   std::ofstream ofs("result.txt");
   height_map[0] = 0;
@@ -242,8 +243,39 @@ int main(int argc, char *argv[])
     }
   }
 
+  height_map_rev[0] = 0;
+  for (int y = height-2; y >= 0; --y) {
+    n = normal[y*width] + normal[(y+1)*width];
+    height_map[y*width] = height_map[(y+1)*width] + (n.y/n.z);
+    if (height_map[y*width] < smallest_rev)
+      smallest_rev = height_map[y*width];
+  }
+
+  for (int x = width - 2; x >= 0; --x) {
+    n = normal[x] + normal[x+1];
+    height_map[x] = height_map[x+1] + (n.x/n.z);
+    if (height_map[x] < smallest_rev)
+      smallest_rev = height_map[x];
+  }
+
+  for (int y = height - 2; y >= 0; --y) {
+    for (int x = width - 2; x >= 0; --x) {
+      cv::Point3_<double> nx;
+      cv::Point3_<double> ny;
+      double zx, zy;
+      nx = normal[y*width + x] + normal[y*width + x+1];
+      ny = normal[y*width + x] + normal[(y+1)*width + x];
+      zx = height_map[y*width + (x+1)] + (nx.x/nx.z);
+      zy = height_map[(y+1)*width + x] + (ny.y/ny.z);
+      height_map[y*width + x] = (zx + zy)/2.0;
+      if (height_map[y*width + x] < smallest_rev)
+        smallest_rev = height_map[y*width + x];
+    }
+  }
+
   for (int i = 0; i < height*width; ++i) {
-    ofs << height_map[i] - smallest << std::endl;
+    height_map[i] = (height_map[i] - smallest + height_map_rev[i] - smallest_rev) / 2;
+    ofs << height_map[i] << std::endl;
   }
 
   result = new result_set;
