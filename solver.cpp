@@ -88,21 +88,19 @@ void display(void)
   if (result == NULL)
     goto end;
 
+  glPushMatrix();
+  glTranslated( - result->width/2, + result->height/2, 0);
   glColor3d(0.0, 0.0, 0.0);
+  glBegin(GL_POINTS);
   for (int y = 0; y < result->height; ++y) {
     for (int x = 0; x < result->width; ++x) {
-      cv::Point3_<double> v = result->normal[y*result->width + x];
-      GLdouble gl_vec[3] = {(double)x, - (double)y, 0};
+      GLdouble gl_vec[3] = {(double)x, - (double)y, result->height_map[y*result->width + x]};
 
-      glBegin(GL_LINES);
       glVertex3dv(gl_vec);
-      gl_vec[0] += v.x*2;
-      gl_vec[1] += v.y*2;
-      gl_vec[2] += v.z*2;
-      glVertex3dv(gl_vec);
-      glEnd();
     }
   }
+  glEnd();
+  glPopMatrix();
 
  end:
   glFlush();
@@ -147,6 +145,10 @@ void motion(int x, int y)
     glTranslated((x - ms.x)/10.0, - (y - ms.y)/10.0, 0);
     glutPostRedisplay();
   }
+  if (ms.right) {
+    glRotated((x - ms.x)/2.0, 0, 0, 1.0);
+    glutPostRedisplay();
+  }
   ms.x = x;
   ms.y = y;
 }
@@ -157,7 +159,8 @@ void resize(int w, int h)
 
   glLoadIdentity();
   gluPerspective(30.0, (double)w / (double)h, 1.0, 1000.0);
-  glTranslated(0, 0, - 50);
+  glTranslated(0, 0, - 200);
+  glRotated(-50, 1.0, 0, 0.0);
 }
 
 int main(int argc, char *argv[])
@@ -212,12 +215,12 @@ int main(int argc, char *argv[])
     cv::Point3_<double> n;
     if (y > 0) {
       n = normal[y*width] + normal[(y-1)*width];
-      value = height_map[y*width] = height_map[(y-1)*width] + (n.y/n.z);
+      value = height_map[y*width] = height_map[(y-1)*width] - (n.y/n.z);
       ofs << y << ", " << value << ", " << n << std::endl;
     }
     for (int x = 1; x < width; ++x) {
       n = normal[y*width + x] + normal[y*width + x-1];
-      value = height_map[y*width + x] = height_map[y*width + (x-1)] + (n.x/n.z);
+      value = height_map[y*width + x] = height_map[y*width + (x-1)] - (n.x/n.z);
       // std::cout << value << std::endl;
     }
   }
