@@ -10,6 +10,8 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
+bool pressed = false;
+
 cv::Point3_<double> estimate_light_direction(cv::Mat sphere) {
   const int height = sphere.rows;
   const int width  = sphere.cols;
@@ -106,13 +108,56 @@ void display(void)
   glFlush();
 }
 
+struct mouse_status {
+  int x, y;
+  bool left, right;
+};
+
+mouse_status ms;
+
+void mouse(int button, int state, int x, int y)
+{
+  int d_z = 0;
+
+  ms.x = x;
+  ms.y = y;
+  switch (button) {
+  case 0:                     // left
+    ms.left = state == 0;
+    break;
+  case 2:                     // right
+    ms.right = state == 0;
+    break;
+  case 3:                     // wheel up
+    if (state == 0)
+      d_z = 5;
+    break;
+  case 4:                     // wheel down
+    if (state == 0)
+      d_z = - 5;
+    break;
+  }
+  glTranslated(0, 0, d_z);
+  glutPostRedisplay();
+}
+
+void motion(int x, int y)
+{
+  if (ms.left) {
+    glTranslated((x - ms.x)/10.0, - (y - ms.y)/10.0, 0);
+    glutPostRedisplay();
+  }
+  ms.x = x;
+  ms.y = y;
+}
+
 void resize(int w, int h)
 {
   glViewport(0, 0, w, h);
 
   glLoadIdentity();
   gluPerspective(30.0, (double)w / (double)h, 1.0, 100.0);
-  glTranslated(-10, -10, -50.0);
+  glTranslated(0, 0, - 50);
 }
 
 int main(int argc, char *argv[])
@@ -122,6 +167,8 @@ int main(int argc, char *argv[])
   glutCreateWindow("glut");
   glutDisplayFunc(display);
   glutReshapeFunc(resize);
+  glutMouseFunc(mouse);
+  glutMotionFunc(motion);
   init();
 
   std::cout << "For Computer Vision class Assignment" << std::endl;
