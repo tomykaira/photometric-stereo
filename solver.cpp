@@ -1,4 +1,5 @@
 #include <iostream>
+#include <fstream>
 #include <cmath>
 #include <cassert>
 
@@ -70,6 +71,7 @@ struct result_set {
   int width;
   int height;
   cv::Point3_<double> *normal;
+  double *height_map;
 };
 
 struct result_set *result = NULL;
@@ -90,7 +92,7 @@ void display(void)
   for (int y = 0; y < result->height; ++y) {
     for (int x = 0; x < result->width; ++x) {
       cv::Point3_<double> v = result->normal[y*result->width + x];
-      GLdouble gl_vec[3] = {(double)x, (double)y, 0};
+      GLdouble gl_vec[3] = {(double)x, - (double)y, 0};
 
       glBegin(GL_LINES);
       glVertex3dv(gl_vec);
@@ -201,12 +203,36 @@ int main(int argc, char *argv[])
     }
   }
 
+  double *height_map = new double[width*height];
+  std::ofstream ofs("y.txt");
+  height_map[0] = 0;
+
+  for (int y = 0; y < height; ++y) {
+    double value;
+    cv::Point3_<double> n;
+    if (y > 0) {
+      n = normal[y*width] + normal[(y-1)*width];
+      value = height_map[y*width] = height_map[(y-1)*width] + (n.y/n.z);
+      ofs << y << ", " << value << ", " << n << std::endl;
+    }
+    for (int x = 1; x < width; ++x) {
+      n = normal[y*width + x] + normal[y*width + x-1];
+      value = height_map[y*width + x] = height_map[y*width + (x-1)] + (n.x/n.z);
+      // std::cout << value << std::endl;
+    }
+  }
+
   result = new result_set;
   result->width  = width;
   result->height = height;
   result->normal = normal;
+  result->height_map = height_map;
 
   glutMainLoop();
   cv::waitKey(0);
+
+  delete normal;
+  delete height_map;
+  delete result;
   return 0;
 }
