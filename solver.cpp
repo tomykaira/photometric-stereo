@@ -6,6 +6,10 @@
 #include <opencv2/imgproc/imgproc.hpp>
 #include <opencv2/highgui/highgui.hpp>
 
+#include <GL/glut.h>
+#include <GL/gl.h>
+#include <GL/glu.h>
+
 cv::Point3_<double> estimate_light_direction(cv::Mat sphere) {
   const int height = sphere.rows;
   const int width  = sphere.cols;
@@ -60,8 +64,66 @@ cv::Point3_<double> calc_normal(cv::Matx34d s, cv::Vec<double, 4> i) {
   return cv::Point3_<double>(nvec.mul(cv::Vec<double, 3>(scale, scale, scale)));
 }
 
+struct result_set {
+  int width;
+  int height;
+  cv::Point3_<double> *normal;
+};
+
+struct result_set *result = NULL;
+
+void init(void)
+{
+  glClearColor(1.0, 1.0, 1.0, 1.0);
+}
+
+void display(void)
+{
+  int i;
+
+  glClear(GL_COLOR_BUFFER_BIT);
+
+  if (result == NULL)
+    goto end;
+
+  glColor3d(0.0, 0.0, 0.0);
+  for (int y = 0; y < result->height; ++y) {
+    for (int x = 0; x < result->width; ++x) {
+      cv::Point3_<double> v = result->normal[y*result->width + x];
+      GLdouble gl_vec[3] = {(double)x, (double)y, 0};
+
+      glBegin(GL_LINES);
+      glVertex3dv(gl_vec);
+      gl_vec[0] += v.x;
+      gl_vec[1] += v.y;
+      gl_vec[2] += v.z;
+      glVertex3dv(gl_vec);
+      glEnd();
+    }
+  }
+
+ end:
+  glFlush();
+}
+
+void resize(int w, int h)
+{
+  glViewport(0, 0, w, h);
+
+  glLoadIdentity();
+  gluPerspective(30.0, (double)w / (double)h, 1.0, 100.0);
+  glTranslated(-10, -10, -50.0);
+}
+
 int main(int argc, char *argv[])
 {
+  glutInit(&argc, argv);
+  glutInitDisplayMode(GLUT_RGBA);
+  glutCreateWindow("glut");
+  glutDisplayFunc(display);
+  glutReshapeFunc(resize);
+  init();
+
   std::cout << "For Computer Vision class Assignment" << std::endl;
 
   cv::Mat_<uint8_t> spheres = cv::imread("./sphere.png", CV_LOAD_IMAGE_GRAYSCALE);
@@ -86,13 +148,20 @@ int main(int argc, char *argv[])
   for (int y = 0; y < height; ++y) {
     for (int x = 0; x < width; ++x) {
       cv::Vec<double, 4> i(
-        (double)problem.at<uint8_t>(x, y),
-        (double)problem.at<uint8_t>(x + width, y),
-        (double)problem.at<uint8_t>(x + width*2, y),
-        (double)problem.at<uint8_t>(x + width*3, y));
+        (double)problem.at<uint8_t>(y, x),
+        (double)problem.at<uint8_t>(y, x + width),
+        (double)problem.at<uint8_t>(y, x + width*2),
+        (double)problem.at<uint8_t>(y, x + width*3));
       normal[y*width + x] = calc_normal(directions, i);
     }
   }
 
+  result = new result_set;
+  result->width  = width;
+  result->height = height;
+  result->normal = normal;
+
+  glutMainLoop();
+  cv::waitKey(0);
   return 0;
 }
