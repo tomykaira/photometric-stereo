@@ -96,9 +96,9 @@ void display(void)
 
       glBegin(GL_LINES);
       glVertex3dv(gl_vec);
-      gl_vec[0] += v.x;
-      gl_vec[1] += v.y;
-      gl_vec[2] += v.z;
+      gl_vec[0] += v.x*2;
+      gl_vec[1] += v.y*2;
+      gl_vec[2] += v.z*2;
       glVertex3dv(gl_vec);
       glEnd();
     }
@@ -156,7 +156,7 @@ void resize(int w, int h)
   glViewport(0, 0, w, h);
 
   glLoadIdentity();
-  gluPerspective(30.0, (double)w / (double)h, 1.0, 100.0);
+  gluPerspective(30.0, (double)w / (double)h, 1.0, 1000.0);
   glTranslated(0, 0, - 50);
 }
 
