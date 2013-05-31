@@ -11,6 +11,10 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
+const double LAMBDA = 1;
+const double MU_1 = 0;
+const double MU_2 = 2;
+
 bool pressed = false;
 
 cv::Point3_<double> estimate_light_direction(cv::Mat sphere) {
@@ -174,48 +178,75 @@ void resize(int w, int h)
   glRotated(-50, 1.0, 0, 0.0);
 }
 
+// http://docs.opencv.org/doc/tutorials/core/discrete_fourier_transform/discrete_fourier_transform.html
+void dft_support(cv::Mat &input, cv::Mat &re, cv::Mat &imm)
+{
+  cv::Mat padded;
+  int m = 512;
+  int n = 512;
+  cv::copyMakeBorder(input, padded, 0, m - input.rows, 0, n - input.cols, cv::BORDER_CONSTANT, cv::Scalar::all(0));
+
+  cv::Mat planes[] = {cv::Mat_<double>(padded), cv::Mat::zeros(padded.size(), CV_64F)};
+  cv::Mat complexI;
+  cv::merge(planes, 2, complexI);
+
+  cv::dft(complexI, complexI, cv::DFT_COMPLEX_OUTPUT, input.rows);
+
+  cv::split(complexI, planes);
+  re = planes[0];
+  imm = planes[1];
+}
+
 double *calculate_height_map(int width, int height, cv::Point3_<double> *normal)
 {
   double *height_map = new double[width*height];
-  double *map_x = new double[width*height];
-  double *map_y = new double[width*height];
+  cv::Mat_<double> grad_p(height, width, 0.0);
+  cv::Mat_<double> grad_q(height, width, 0.0);
   cv::Point3_<double> n;
 
-  map_x[0] = 0;
-  map_y[0] = 0;
-
-  for (int y = 1; y < height; ++y) {
-    n = normal[y*width] + normal[(y-1)*width];
-    map_y[y*width] = map_y[(y-1)*width] - (n.y/n.z);
-  }
-
-  for (int y = 1; y < height; ++y) {
-    for (int x = 1; x < width; ++x) {
-      cv::Point3_<double> nx;
-      nx = normal[y*width + x] + normal[y*width + x-1];
-      map_y[y*width + x] = map_y[y*width + (x-1)] - (nx.x/nx.z);
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      n = normal[y*width + x];
+      double dx = - n.x / n.z, dy = - n.y / n.z;
+      grad_p.at<double>(y, x) = abs(dx) > 12 ? 0 : dx;
+      grad_q.at<double>(y, x) = abs(dy) > 12 ? 0 : dy;
     }
   }
 
-  for (int x = 1; x < width; ++x) {
-    n = normal[x] + normal[x-1];
-    map_x[x] = map_x[x-1] - (n.x/n.z);
-  }
+  cv::Mat p_re, p_imm, q_re, q_imm;
+  dft_support(grad_p, p_re, p_imm);
+  dft_support(grad_q, q_re, q_imm);
 
-  for (int x = 1; x < width; ++x) {
-    for (int y = 1; y < height; ++y) {
-      cv::Point3_<double> ny;
-      ny = normal[y*width + x] + normal[(y-1)*width + x];
-      map_x[y*width + x] = map_x[(y-1)*width + x] - (ny.y/ny.z);
+  const int cols = p_re.cols, rows = p_re.rows;
+  cv::Mat_<double> h_re(rows, cols, 0.0);
+  cv::Mat_<double> h_imm(rows, cols, 0.0);
+
+  for (int v = 0; v < rows; ++v) {
+    for (int u = 0; u < cols; ++u) {
+      if (u == 0 ||  v == 0) {
+        // keep 0
+        continue;
+      }
+      double delta = LAMBDA*(u*u*u*u + v*v*v*v) + (1 + MU_1)*(u*u + v*v) + MU_2*(u*u + v*v)*(u*u + v*v);
+      h_re.at<double>(v, u)  = (((double)u + LAMBDA*u*u*u)*p_imm.at<double>(v, u) + ((double)v + LAMBDA*v*v*v)*q_imm.at<double>(v, u)) / delta;
+      h_imm.at<double>(v, u) = - (((double)u + LAMBDA*u*u*u)*p_re.at<double>(v, u) + ((double)v + LAMBDA*v*v*v)*q_re.at<double>(v, u)) / delta;
     }
   }
 
-  for (int i = 0; i < width*height; ++i) {
-    height_map[i] = (map_x[i] + map_y[i]) / 2.0;
-  }
+  cv::Mat z;
+  cv::Mat h, h2[2] = {h_re, h_imm};
+  merge(h2, 2, h);
+  dft(h, z, cv::DFT_INVERSE | cv::DFT_REAL_OUTPUT | cv::DFT_SCALE, height);
 
-  delete map_x;
-  delete map_y;
+  std::cout << z(cv::Range(0, 10), cv::Range(0, 10)) << std::endl;
+  normalize(z, z, 0, 20, CV_MINMAX);
+  std::cout << z(cv::Range(0, 10), cv::Range(0, 10)) << std::endl;
+
+  for (int y = 0; y < height; ++y) {
+    for (int x = 0; x < width; ++x) {
+      height_map[y*width + x] = z.at<double>(y, x);
+    }
+  }
   return height_map;
 }
 
