@@ -53,6 +53,10 @@ cv::Point3_<double> estimate_light_direction(cv::Mat sphere) {
   double y = (double)direction_2d.y / size;
   double z = sqrt(size*size - (double)direction_2d.dot(direction_2d)) / size;
 
+  cv::circle(sphere, cv::Point((double)brightest_x_sum/(double)points, (double)brightest_y_sum/(double)points), 2, cv::Scalar(0, 0, 0), -1);
+  cv::imshow("g", sphere);
+  cv::waitKey(0);
+
   assert(x*x + y*y + z*z - 1.0 < 0.1e-8);
 
   return cv::Point3_<double>(x, y, z);
