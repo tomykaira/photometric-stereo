@@ -211,42 +211,41 @@ int main(int argc, char *argv[])
   }
 
   double *height_map = new double[width*height];
-  double smallest = 0;
+  double *map_x = new double[width*height];
+  double *map_y = new double[width*height];
   cv::Point3_<double> n;
   std::ofstream ofs("result.txt");
-  height_map[0] = 0;
+  map_x[0] = 0;
+  map_y[0] = 0;
 
   for (int y = 1; y < height; ++y) {
     n = normal[y*width] + normal[(y-1)*width];
-    height_map[y*width] = height_map[(y-1)*width] - (n.y/n.z);
-    if (height_map[y*width] < smallest)
-      smallest = height_map[y*width];
-  }
-
-  for (int x = 1; x < width; ++x) {
-    n = normal[x] + normal[x-1];
-    height_map[x] = height_map[x-1] - (n.x/n.z);
-    if (height_map[x] < smallest)
-      smallest = height_map[x];
+    map_y[y*width] = map_y[(y-1)*width] - (n.y/n.z);
   }
 
   for (int y = 1; y < height; ++y) {
     for (int x = 1; x < width; ++x) {
       cv::Point3_<double> nx;
-      cv::Point3_<double> ny;
-      double zx, zy;
       nx = normal[y*width + x] + normal[y*width + x-1];
+      map_y[y*width + x] = map_y[y*width + (x-1)] - (nx.x/nx.z);
+    }
+  }
+
+  for (int x = 1; x < width; ++x) {
+    n = normal[x] + normal[x-1];
+    map_x[x] = map_x[x-1] - (n.x/n.z);
+  }
+
+  for (int x = 1; x < width; ++x) {
+    for (int y = 1; y < height; ++y) {
+      cv::Point3_<double> ny;
       ny = normal[y*width + x] + normal[(y-1)*width + x];
-      zx = height_map[y*width + (x-1)] - (nx.x/nx.z);
-      zy = height_map[(y-1)*width + x] - (ny.y/ny.z);
-      height_map[y*width + x] = (zx + zy)/2.0;
-      if (height_map[y*width + x] < smallest)
-        smallest = height_map[y*width + x];
+      map_x[y*width + x] = map_x[(y-1)*width + x] - (ny.y/ny.z);
     }
   }
 
   for (int i = 0; i < height*width; ++i) {
-    height_map[i] = height_map[i] - smallest;
+    height_map[i] = (map_x[i] + map_y[i]) / 2.0;
     ofs << height_map[i] << std::endl;
   }
 
