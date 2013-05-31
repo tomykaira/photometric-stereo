@@ -90,12 +90,23 @@ void display(void)
   glPushMatrix();
   glTranslated( - result->width/2, + result->height/2, 0);
   glColor3d(0.0, 0.0, 0.0);
-  glBegin(GL_POINTS);
+  glBegin(GL_LINES);
   for (int y = 0; y < result->height; ++y) {
     for (int x = 0; x < result->width; ++x) {
       GLdouble gl_vec[3] = {(double)x, - (double)y, result->height_map[y*result->width + x]};
 
       glVertex3dv(gl_vec);
+      if (0 < x && x < result->width - 1)
+        glVertex3dv(gl_vec);
+    }
+  }
+  for (int x = 0; x < result->width; ++x) {
+    for (int y = 0; y < result->height; ++y) {
+      GLdouble gl_vec[3] = {(double)x, - (double)y, result->height_map[y*result->width + x]};
+
+      glVertex3dv(gl_vec);
+      if (0 < y && y < result->height - 1)
+        glVertex3dv(gl_vec);
     }
   }
   glEnd();
@@ -146,6 +157,7 @@ void motion(int x, int y)
   }
   if (ms.right) {
     glRotated((x - ms.x)/2.0, 0, 0, 1.0);
+    glRotated((y - ms.y)/2.0, 1, 0, 0);
     glutPostRedisplay();
   }
   ms.x = x;
