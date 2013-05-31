@@ -207,21 +207,35 @@ int main(int argc, char *argv[])
   }
 
   double *height_map = new double[width*height];
-  std::ofstream ofs("y.txt");
+  double value;
+  cv::Point3_<double> n;
+  std::ofstream f_y0("y0.txt");
+  std::ofstream f_ylast("ylast.txt");
   height_map[0] = 0;
 
-  for (int y = 0; y < height; ++y) {
-    double value;
-    cv::Point3_<double> n;
-    if (y > 0) {
-      n = normal[y*width] + normal[(y-1)*width];
-      value = height_map[y*width] = height_map[(y-1)*width] - (n.y/n.z);
-      ofs << y << ", " << value << ", " << n << std::endl;
-    }
+  for (int y = 1; y < height; ++y) {
+    n = normal[y*width] + normal[(y-1)*width];
+    value = height_map[y*width] = height_map[(y-1)*width] - (n.y/n.z);
+    f_y0 << y << ", " << value << ", " << n << std::endl;
+  }
+
+  for (int x = 1; x < width; ++x) {
+    n = normal[x] + normal[x-1];
+    height_map[x] = height_map[x-1] - (n.x/n.z);
+  }
+
+  for (int y = 1; y < height; ++y) {
     for (int x = 1; x < width; ++x) {
-      n = normal[y*width + x] + normal[y*width + x-1];
-      value = height_map[y*width + x] = height_map[y*width + (x-1)] - (n.x/n.z);
-      // std::cout << value << std::endl;
+      cv::Point3_<double> nx;
+      cv::Point3_<double> ny;
+      double zx, zy;
+      nx = normal[y*width + x] + normal[y*width + x-1];
+      ny = normal[y*width + x] + normal[(y-1)*width + x];
+      zx = height_map[y*width + (x-1)] - (nx.x/nx.z);
+      zy = height_map[(y-1)*width + x] - (ny.y/ny.z);
+      value = height_map[y*width + x] = (zx + zy)/2.0;
+      if (x == width-1)
+        f_ylast << y << ", " << value << ", " << n << std::endl;
     }
   }
 
